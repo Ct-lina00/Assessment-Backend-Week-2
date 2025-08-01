@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Flask, jsonify, request
 from psycopg2 import sql
 
-from database_functions import get_db_connection, get_subjects, get_experiments
+from database_functions import get_db_connection, get_subjects, get_experiments, delete_experiment, get_experiment_by_id
 
 
 app = Flask(__name__)
@@ -63,7 +63,7 @@ def get_experiment_endpoint():
         if "type" in request.args:
             type = request.args.get("type")
             if type is not None and not validate_type(type):
-                return {"error": "Invalid value for type parameter"}, 400
+                return {"error": "Invalid value for 'type' parameter"}, 400
 
         if "score_over" in request.args:
             score_over = request.args.get("score_over")
@@ -88,16 +88,15 @@ def get_experiment_endpoint():
         return experiments, 200
 
 
-@app.route("/experiment/<id>", methods=["DELETE"])
-def delete_experiment_endpoint():
+@app.route("/experiment/<int:id>", methods=["DELETE"])
+def delete_experiment_endpoint(experiment_id: int):
     """Function executes the delete request. """
-
+    experiment = get_experiment_by_id(conn, experiment_id)
     success = delete_experiment(conn, experiment_id)
+    if success:
+        return experiment, 200
 
-    if not success:
-        return {"error": "Movie could not be deleted"}, 404
-
-    return {"message": "Movie deleted"}
+    return {"error": f"Unable to locate experiment with ID {experiment_id}."}, 404
 
 
 if __name__ == "__main__":

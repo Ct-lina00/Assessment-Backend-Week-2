@@ -47,14 +47,32 @@ def get_experiments(conn: connection, type: str = None, score_over: int = None) 
             JOIN experiment_type et
             ON et.experiment_type_id = e.experiment_type_id
             ORDER BY e.experiment_date DESC;""")
+        params = {}
+        if type is not None and score_over is not None:
+            queries = []
 
-        cursor.execute(query)
+            if type is not None:
+                queries.append("WHERE et.type_name ILIKE %(type)s")
+                params['type'] = type
+            if score_over is not None:
+                queries.append(
+                    "AND ROUND(e.score * (100/ et.max_score), 2 > %(score_over)s")
+                params["score_over"] = score_over
+            if queries:
+                for q in queries:
+                    query += sql.SQL(q)
+
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+
         rows = cursor.fetchall()
 
     return rows
 
 
-def delete_experiment(conn: connection, experiment_id: str):
+def get_experiment_by_id(conn: connection, experiment_id: int):
     with conn.cursor() as cursor:
         query = """
         SELECT experiment_id, experiment_date
@@ -62,12 +80,14 @@ def delete_experiment(conn: connection, experiment_id: str):
         WHERE experiment_id = %(experiment_id)s;"""
         cursor.execute(query, {"experiment_id": experiment_id})
         rows = cursor.fetchone()
-        if rows:
-            query2 = """
-                    DELETE FROM experiment
-                    WHERE experiment_id = %(experiment_id)s; """
-            cursor.execute(query2, {"experiment_id": experiment_id})
-            conn.commit()
-            return rows, 200
-        if not rows:
-            return {"error": f"Unable to locate experiment with ID {experiment_id}."}, 404
+    return rows
+
+
+def delete_experiment(conn: connection, experiment_id: int):
+    with conn.cursor() as cursor:
+        query = """
+                DELETE FROM experiment
+                WHERE experiment_id = %(experiment_id)s; """
+        cursor.execute(query, {"experiment_id": experiment_id})
+        conn.commit()
+        return True
